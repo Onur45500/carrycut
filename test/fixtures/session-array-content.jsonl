@@ -1,0 +1,6 @@
+{"type":"user","timestamp":"2026-03-01T09:00:00.000Z","message":{"role":"user","content":[{"type":"text","text":"Please run /auth-helper for the login flow"}]}}
+{"type":"assistant","timestamp":"2026-03-01T09:00:05.000Z","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"pdf-tools","args":{}}}]}}
+{"type":"assistant","timestamp":"2026-03-01T09:01:00.000Z","message":{"content":[{"type":"tool_use","name":"SlashCommand","input":{"command":"/git-flow release"}}]}}
+{"type":"user","timestamp":"2026-03-01T09:02:00.000Z","message":{"role":"user","content":[{"type":"text","text":"/compact"}]}}
+{"type":"conversation_compacted","timestamp":"2026-03-01T09:02:01.000Z","summary":"Session compacted"}
+{"type":"assistant","timestamp":"2026-03-01T09:03:00.000Z","message":{"content":[{"type":"tool_use","name":"Skill","input":{"args":{"skill":"deploy-guard"}}}]}}

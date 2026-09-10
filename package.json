@@ -1,0 +1,56 @@
+{
+  "name": "carrycut",
+  "version": "2.0.0",
+  "description": "Session guardian: simulate which Claude Code skills survive auto-compaction",
+  "type": "module",
+  "bin": {
+    "carrycut": "dist/cli.js"
+  },
+  "main": "./dist/cli.js",
+  "exports": {
+    ".": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "claude-code",
+    "skills",
+    "compaction",
+    "cli",
+    "tiktoken"
+  ],
+  "author": "carrycut contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YOUR_GITHUB_USER/carrycut.git"
+  },
+  "homepage": "https://github.com/YOUR_GITHUB_USER/carrycut#readme",
+  "bugs": {
+    "url": "https://github.com/YOUR_GITHUB_USER/carrycut/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "js-tiktoken": "^1.0.19",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}
