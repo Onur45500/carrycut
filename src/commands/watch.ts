@@ -12,6 +12,8 @@ export interface WatchEvaluateOptions {
   calibration: number;
   sessionPath?: string;
   lastCompactAt?: string;
+  lastCompactTrigger?: string;
+  lastCompactPreTokens?: number;
   /** Previous alert skill names (for edge triggering). */
   previousAlertKey?: string;
 }
@@ -99,6 +101,8 @@ export function evaluateWatch(
     type: alertSkills.length > 0 ? "alert" : "ok",
     sessionPath: options.sessionPath,
     lastCompactAt: options.lastCompactAt,
+    lastCompactTrigger: options.lastCompactTrigger,
+    lastCompactPreTokens: options.lastCompactPreTokens,
     skills: sim.result.skills,
     suggestions,
     alertSkills,

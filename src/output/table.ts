@@ -38,6 +38,8 @@ export function formatTable(
     sessionPath?: string;
     sessionSkillCount?: number;
     lastCompactAt?: string;
+    lastCompactTrigger?: string;
+    lastCompactPreTokens?: number;
   },
 ): string {
   const lines: string[] = [];
@@ -54,7 +56,16 @@ export function formatTable(
     lines.push(pc.dim(`Session: ${options.sessionPath}${count}`));
   }
   if (options?.lastCompactAt) {
-    lines.push(pc.dim(`Last compaction: ${options.lastCompactAt}`));
+    const trigger = options.lastCompactTrigger
+      ? ` · trigger=${options.lastCompactTrigger}`
+      : "";
+    const pre =
+      options.lastCompactPreTokens != null
+        ? ` · preTokens≈${options.lastCompactPreTokens}`
+        : "";
+    lines.push(
+      pc.dim(`Last compaction: ${options.lastCompactAt}${trigger}${pre}`),
+    );
   }
   lines.push(
     pc.dim(

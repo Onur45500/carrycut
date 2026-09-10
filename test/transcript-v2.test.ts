@@ -53,7 +53,35 @@ describe("extractSkillNamesFromRecord V2", () => {
 });
 
 describe("detectCompactEvent", () => {
-  it("detects /compact in user text", () => {
+  it("detects official compact_boundary + compactMetadata.trigger", () => {
+    expect(
+      detectCompactEvent({
+        type: "system",
+        subtype: "compact_boundary",
+        timestamp: "2026-01-01T00:00:00.000Z",
+        compactMetadata: { trigger: "manual", preTokens: 120000 },
+      }),
+    ).toEqual({
+      compacted: true,
+      at: "2026-01-01T00:00:00.000Z",
+      kind: "compact_boundary",
+      trigger: "manual",
+      preTokens: 120000,
+    });
+  });
+
+  it("detects isCompactSummary user messages", () => {
+    const result = detectCompactEvent({
+      type: "user",
+      isCompactSummary: true,
+      timestamp: "2026-01-01T00:00:01.000Z",
+      message: { content: "summary text" },
+    });
+    expect(result.compacted).toBe(true);
+    expect(result.kind).toBe("compact_summary");
+  });
+
+  it("detects /compact in user text (legacy)", () => {
     expect(
       detectCompactEvent({
         message: { content: "please /compact now" },
@@ -61,13 +89,13 @@ describe("detectCompactEvent", () => {
     ).toBe(true);
   });
 
-  it("detects conversation_compacted type", () => {
-    expect(
-      detectCompactEvent({
-        type: "conversation_compacted",
-        timestamp: "2026-01-01T00:00:00.000Z",
-      }),
-    ).toEqual({ compacted: true, at: "2026-01-01T00:00:00.000Z" });
+  it("detects conversation_compacted type (legacy)", () => {
+    const result = detectCompactEvent({
+      type: "conversation_compacted",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    });
+    expect(result.compacted).toBe(true);
+    expect(result.at).toBe("2026-01-01T00:00:00.000Z");
   });
 
   it("returns false for normal chat", () => {
@@ -97,10 +125,23 @@ describe("parseTranscriptFile fixtures", () => {
       "git-flow",
       "deploy-guard",
     ]);
-    expect(parsed.lastCompactAt).toBeTruthy();
+    expect(parsed.lastCompactAt).toBe("2026-03-01T09:02:01.000Z");
+    expect(parsed.lastCompactTrigger).toBe("auto");
+    expect(parsed.lastCompactPreTokens).toBe(182400);
+    expect(parsed.invokedNames).not.toContain("fake-skill");
     expect(
-      parsed.warnings.some((w) => /compaction event/i.test(w)),
+      parsed.warnings.some((w) => /trigger: auto/i.test(w)),
     ).toBe(true);
+  });
+
+  it("does not mine skills from isCompactSummary content", () => {
+    expect(
+      extractSkillNamesFromRecord({
+        type: "user",
+        isCompactSummary: true,
+        message: { content: "mentions /auth-helper and /deploy-guard" },
+      }),
+    ).toEqual([]);
   });
 });
 

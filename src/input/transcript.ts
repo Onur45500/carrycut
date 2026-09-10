@@ -14,15 +14,32 @@ export interface TranscriptParseResult {
   /** Unique skills in invocation order (oldest → newest). */
   invokedNames: string[];
   sessionPath?: string;
-  /** ISO timestamp of the most recent /compact or compact summary event. */
+  /** ISO timestamp of the most recent compact boundary / summary. */
   lastCompactAt?: string;
+  /** From compactMetadata.trigger: "auto" | "manual" | other. */
+  lastCompactTrigger?: string;
+  /** From compactMetadata.preTokens when present. */
+  lastCompactPreTokens?: number;
   warnings: string[];
+}
+
+export interface CompactDetection {
+  compacted: boolean;
+  at?: string;
+  /** Boundary marker vs synthetic summary vs legacy heuristics. */
+  kind?: "compact_boundary" | "compact_summary" | "legacy";
+  trigger?: string;
+  preTokens?: number;
 }
 
 interface JsonlRecord {
   type?: string;
+  subtype?: string;
   timestamp?: string;
   cwd?: string;
+  isCompactSummary?: boolean;
+  compactMetadata?: unknown;
+  compact_metadata?: unknown;
   message?: {
     role?: string;
     content?: unknown;
@@ -63,23 +80,66 @@ function extractSlashCommands(text: string, pushName: (raw: string) => void): vo
 }
 
 /**
- * Detect compaction events in a transcript record.
+ * Detect Claude Code compaction markers in a transcript record.
+ *
+ * Preferred signals (real session JSONL):
+ * - system subtype compact_boundary + compactMetadata.trigger / preTokens
+ * - user message with isCompactSummary: true
+ *
+ * Legacy heuristics kept as fallback for older/fixture formats.
  */
-export function detectCompactEvent(
-  record: JsonlRecord,
-): { compacted: boolean; at?: string } {
+export function detectCompactEvent(record: JsonlRecord): CompactDetection {
   const ts =
     typeof record.timestamp === "string" && record.timestamp
       ? record.timestamp
       : undefined;
 
   const type = typeof record.type === "string" ? record.type.toLowerCase() : "";
+  const subtype =
+    typeof record.subtype === "string" ? record.subtype.toLowerCase() : "";
+
+  // Official boundary: { type: "system", subtype: "compact_boundary", compactMetadata }
+  if (type === "system" && subtype === "compact_boundary") {
+    const meta = readCompactMetadata(record);
+    return {
+      compacted: true,
+      at: ts,
+      kind: "compact_boundary",
+      trigger: meta.trigger,
+      preTokens: meta.preTokens,
+    };
+  }
+
+  // Official summary line: { type: "user", isCompactSummary: true, ... }
+  if (record.isCompactSummary === true) {
+    const meta = readCompactMetadata(record);
+    return {
+      compacted: true,
+      at: ts,
+      kind: "compact_summary",
+      trigger: meta.trigger,
+      preTokens: meta.preTokens,
+    };
+  }
+
+  // camelCase / snake_case metadata without subtype (defensive)
+  const meta = readCompactMetadata(record);
+  if (meta.trigger || meta.preTokens != null) {
+    return {
+      compacted: true,
+      at: ts,
+      kind: "compact_boundary",
+      trigger: meta.trigger,
+      preTokens: meta.preTokens,
+    };
+  }
+
   if (
     type.includes("compact") ||
     type === "summary" ||
     type === "conversation_compacted"
   ) {
-    return { compacted: true, at: ts };
+    return { compacted: true, at: ts, kind: "legacy" };
   }
 
   const scanText = (text: string): boolean => {
@@ -101,8 +161,27 @@ export function detectCompactEvent(
     return Object.values(obj).some(walk);
   };
 
-  if (walk(record)) return { compacted: true, at: ts };
+  if (walk(record)) return { compacted: true, at: ts, kind: "legacy" };
   return { compacted: false };
+}
+
+function readCompactMetadata(record: JsonlRecord): {
+  trigger?: string;
+  preTokens?: number;
+} {
+  const raw = record.compactMetadata ?? record.compact_metadata;
+  if (!raw || typeof raw !== "object") return {};
+  const meta = raw as Record<string, unknown>;
+  const trigger =
+    typeof meta.trigger === "string"
+      ? meta.trigger
+      : typeof meta.Trigger === "string"
+        ? meta.Trigger
+        : undefined;
+  const preRaw = meta.preTokens ?? meta.pre_tokens;
+  const preTokens =
+    typeof preRaw === "number" && Number.isFinite(preRaw) ? preRaw : undefined;
+  return { trigger, preTokens };
 }
 
 /**
@@ -110,6 +189,14 @@ export function detectCompactEvent(
  * Claude Code formats evolve; we look for common patterns without crashing.
  */
 export function extractSkillNamesFromRecord(record: JsonlRecord): string[] {
+  // Compact summaries are machine-generated continuity text — do not mine for /skills
+  if (record.isCompactSummary === true) return [];
+
+  const type = typeof record.type === "string" ? record.type.toLowerCase() : "";
+  const subtype =
+    typeof record.subtype === "string" ? record.subtype.toLowerCase() : "";
+  if (type === "system" && subtype === "compact_boundary") return [];
+
   const names: string[] = [];
 
   const pushName = (raw: string) => {
@@ -216,6 +303,8 @@ export function parseTranscriptFile(filePath: string): TranscriptParseResult {
   const warnings: string[] = [];
   const invocations: TranscriptInvocation[] = [];
   let lastCompactAt: string | undefined;
+  let lastCompactTrigger: string | undefined;
+  let lastCompactPreTokens: number | undefined;
 
   if (!existsSync(filePath)) {
     return {
@@ -259,6 +348,9 @@ export function parseTranscriptFile(filePath: string): TranscriptParseResult {
     const compact = detectCompactEvent(record);
     if (compact.compacted) {
       lastCompactAt = compact.at ?? parseTimestamp(record, i);
+      // Prefer boundary metadata (has trigger/preTokens) over summary-only lines
+      if (compact.trigger) lastCompactTrigger = compact.trigger;
+      if (compact.preTokens != null) lastCompactPreTokens = compact.preTokens;
     }
 
     const names = extractSkillNamesFromRecord(record);
@@ -282,8 +374,15 @@ export function parseTranscriptFile(filePath: string): TranscriptParseResult {
   }
 
   if (lastCompactAt) {
+    const triggerPart = lastCompactTrigger
+      ? ` (trigger: ${lastCompactTrigger})`
+      : "";
+    const prePart =
+      lastCompactPreTokens != null
+        ? ` · preTokens≈${lastCompactPreTokens}`
+        : "";
     warnings.push(
-      `Transcript shows a compaction event at ${lastCompactAt} — skills listed are post-reattach candidates from invocations in this session.`,
+      `Transcript shows a compaction event at ${lastCompactAt}${triggerPart}${prePart} — skills listed are post-reattach candidates from invocations in this session.`,
     );
   }
 
@@ -303,6 +402,8 @@ export function parseTranscriptFile(filePath: string): TranscriptParseResult {
     invokedNames: uniqueSorted.map((inv) => inv.name),
     sessionPath: resolve(filePath),
     lastCompactAt,
+    lastCompactTrigger,
+    lastCompactPreTokens,
     warnings,
   };
 }

@@ -18,6 +18,8 @@ export interface ResolvedInvocationSource {
   warnings: string[];
   sessionPath?: string;
   lastCompactAt?: string;
+  lastCompactTrigger?: string;
+  lastCompactPreTokens?: number;
   /** Number of unique skills resolved from the session (before manual override). */
   sessionSkillCount?: number;
 }
@@ -47,6 +49,8 @@ export function resolveInvocationSource(options: {
   let names: string[] = [];
   let sessionPath: string | undefined;
   let lastCompactAt: string | undefined;
+  let lastCompactTrigger: string | undefined;
+  let lastCompactPreTokens: number | undefined;
   let sessionSkillCount: number | undefined;
   const invokedAtByName = new Map<string, string>();
 
@@ -60,6 +64,8 @@ export function resolveInvocationSource(options: {
     warnings.push(...parsed.warnings);
     sessionPath = parsed.sessionPath;
     lastCompactAt = parsed.lastCompactAt;
+    lastCompactTrigger = parsed.lastCompactTrigger;
+    lastCompactPreTokens = parsed.lastCompactPreTokens;
     names = parsed.invokedNames;
     sessionSkillCount = parsed.invokedNames.length;
     for (const inv of parsed.invocations) {
@@ -86,6 +92,8 @@ export function resolveInvocationSource(options: {
       ],
       sessionPath,
       lastCompactAt,
+      lastCompactTrigger,
+      lastCompactPreTokens,
       sessionSkillCount,
     };
   }
@@ -101,7 +109,15 @@ export function resolveInvocationSource(options: {
     if (at) skill.invokedAt = at;
   }
 
-  return { skills, warnings, sessionPath, lastCompactAt, sessionSkillCount };
+  return {
+    skills,
+    warnings,
+    sessionPath,
+    lastCompactAt,
+    lastCompactTrigger,
+    lastCompactPreTokens,
+    sessionSkillCount,
+  };
 }
 
 export function resolveDemoSkillsRoot(explicit?: string): string | undefined {

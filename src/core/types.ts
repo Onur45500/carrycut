@@ -76,6 +76,8 @@ export interface SimJsonOutput {
   warnings: string[];
   sessionPath?: string;
   lastCompactAt?: string;
+  lastCompactTrigger?: string;
+  lastCompactPreTokens?: number;
 }
 
 export type WatchEventType = "ok" | "alert";
@@ -84,6 +86,8 @@ export interface WatchJsonEvent {
   type: WatchEventType;
   sessionPath?: string;
   lastCompactAt?: string;
+  lastCompactTrigger?: string;
+  lastCompactPreTokens?: number;
   skills: SkillResult[];
   suggestions: string[];
   alertSkills: string[];

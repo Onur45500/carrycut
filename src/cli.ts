@@ -97,6 +97,8 @@ program
           warnings: source.warnings,
           sessionPath: source.sessionPath,
           lastCompactAt: source.lastCompactAt,
+          lastCompactTrigger: source.lastCompactTrigger,
+          lastCompactPreTokens: source.lastCompactPreTokens,
         });
       } else {
         for (const w of source.warnings) console.error(pc.yellow(w));
@@ -119,6 +121,8 @@ program
         ...sim.json,
         sessionPath: source.sessionPath,
         lastCompactAt: source.lastCompactAt,
+        lastCompactTrigger: source.lastCompactTrigger,
+        lastCompactPreTokens: source.lastCompactPreTokens,
       });
     } else {
       process.stdout.write(
@@ -128,6 +132,8 @@ program
           sessionPath: source.sessionPath,
           sessionSkillCount: source.sessionSkillCount ?? source.skills.length,
           lastCompactAt: source.lastCompactAt,
+          lastCompactTrigger: source.lastCompactTrigger,
+          lastCompactPreTokens: source.lastCompactPreTokens,
         }),
       );
     }
@@ -233,6 +239,8 @@ program
         calibration,
         sessionPath: source.sessionPath,
         lastCompactAt: source.lastCompactAt,
+        lastCompactTrigger: source.lastCompactTrigger,
+        lastCompactPreTokens: source.lastCompactPreTokens,
         previousAlertKey,
       });
 
@@ -269,6 +277,8 @@ program
             sessionSkillCount:
               source.sessionSkillCount ?? source.skills.length,
             lastCompactAt: source.lastCompactAt,
+            lastCompactTrigger: source.lastCompactTrigger,
+            lastCompactPreTokens: source.lastCompactPreTokens,
           }),
         );
       }
@@ -384,7 +394,16 @@ program
         console.log(pc.dim(`Session: ${source.sessionPath}`));
       }
       if (source.lastCompactAt) {
-        console.log(pc.dim(`Last compaction: ${source.lastCompactAt}`));
+        const trigger = source.lastCompactTrigger
+          ? ` · trigger=${source.lastCompactTrigger}`
+          : "";
+        const pre =
+          source.lastCompactPreTokens != null
+            ? ` · preTokens≈${source.lastCompactPreTokens}`
+            : "";
+        console.log(
+          pc.dim(`Last compaction: ${source.lastCompactAt}${trigger}${pre}`),
+        );
       }
       console.log("");
       for (const e of entries) {
